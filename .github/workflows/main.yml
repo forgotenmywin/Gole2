@@ -15,18 +15,18 @@ jobs:
         sudo apt update -y
         sudo apt install -y xvfb ffmpeg -y
         
-    - name: Setup Node & Puppeteer
+    - name: Setup Node (no cache)
       uses: actions/setup-node@v4
       with:
         node-version: 20
-        cache: 'npm'
+        cache: false
     
     - name: Install packages
       run: |
-        rm -f package.json package-lock.json
+        rm -f package*.json
         npm init -y
         npm install puppeteer@latest
-        echo '{"type": "commonjs"}' > package.json
+        echo '{"type": "commonjs"}' >> package.json
     
     - name: Create record folder & instructions
       run: |
@@ -138,7 +138,7 @@ jobs:
         FFMPEG_PID=$!
         sleep 5
         
-        node record.cjs
+        node record.cjs || true
         
         sleep 3
         kill $FFMPEG_PID 2>/dev/null || true
@@ -152,15 +152,20 @@ jobs:
         mv package*.json record/ 2>/dev/null || true
         
         ls -la record/
-        du -sh record/*
+        du -sh record/* || echo "هیچ فایلی نیست"
     
     - name: Commit record files to repo
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
         git add record/*
-        git commit -m "🎥 Add screen recording files [skip ci]" || exit 0
-        git push
+        if git diff --staged --quiet; then
+          echo "هیچ تغییری نیست"
+        else
+          git commit -m "🎥 Add screen recording files [skip ci]"
+          git push
+          echo "✅ فایل‌ها commit و push شد!"
+        fi
     
     - uses: actions/upload-artifact@v4
       with:
