@@ -22,7 +22,7 @@ jobs:
         
         // JSON config بساز/بروزرسانی
         const config = {
-          url: 'https://n8n.io/signup',
+          url: 'https://app.n8n.io/signup?utm_source=app.doona.ai',
           width: 1920,
           height: 1080,
           timestamp: new Date().toISOString()
