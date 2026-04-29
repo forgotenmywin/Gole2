@@ -22,7 +22,7 @@ jobs:
         
         // JSON config بساز/بروزرسانی
         const config = {
-          url: 'https://n8n.io',
+          url: 'https://n8n.io/signup',
           width: 1920,
           height: 1080,
           timestamp: new Date().toISOString()
