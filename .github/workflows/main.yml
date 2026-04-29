@@ -15,15 +15,14 @@ jobs:
         sudo apt update -y
         sudo apt install -y xvfb ffmpeg -y
         
-    - name: Setup Node (no cache)
+    - name: Setup Node
       uses: actions/setup-node@v4
       with:
         node-version: 20
-        cache: false
     
     - name: Install packages
       run: |
-        rm -f package*.json
+        rm -rf node_modules package*.json
         npm init -y
         npm install puppeteer@latest
         echo '{"type": "commonjs"}' >> package.json
@@ -145,29 +144,29 @@ jobs:
         pkill -f ffmpeg || true
         sleep 2
         
-        # همه فایل‌ها رو به record منتقل کن
         mv *.mp4 record/ 2>/dev/null || true
         mv instructions.txt record/ 2>/dev/null || true
         mv record.cjs record/ 2>/dev/null || true
         mv package*.json record/ 2>/dev/null || true
         
-        ls -la record/
-        du -sh record/* || echo "هیچ فایلی نیست"
+        ls -la record/ || echo "record خالی"
+        du -sh record/* 2>/dev/null || echo "فایل نیست"
     
-    - name: Commit record files to repo
+    - name: Commit record files
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add record/*
-        if git diff --staged --quiet; then
-          echo "هیچ تغییری نیست"
-        else
-          git commit -m "🎥 Add screen recording files [skip ci]"
+        git add record/ || echo "record خالی"
+        if ! git diff --staged --quiet; then
+          git commit -m "🎥 Add screen recording [skip ci]"
           git push
-          echo "✅ فایل‌ها commit و push شد!"
+          echo "✅ Push شد!"
+        else
+          echo "هیچ تغییری نیست"
         fi
     
     - uses: actions/upload-artifact@v4
       with:
-        name: 🎥-complete
+        name: 🎥-recording
         path: record/
+        retention-days: 7
