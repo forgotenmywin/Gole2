@@ -1,1 +1,50 @@
-heredjdjd
+name: Screenshot
+on: [push]
+permissions:
+  contents: write
+
+jobs:
+  screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+    - uses: actions/checkout@v4
+    
+    - uses: browser-actions/setup-chrome@v1
+    
+    - name: Screenshot
+      run: |
+        npm init -y
+        npm i puppeteer
+        cat > screenshot.js << 'EOF'
+        const puppeteer = require('puppeteer');
+        const fs = require('fs');
+        
+        // JSON config بساز/بروزرسانی
+        const config = {
+          url: 'https://n8n.io',
+          width: 1920,
+          height: 1080,
+          timestamp: new Date().toISOString()
+        };
+        fs.writeFileSync('config.json', JSON.stringify(config, null, 2));
+        
+        (async () => {
+          const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+          const page = await browser.newPage();
+          await page.setViewport({width: config.width, height: config.height});
+          await page.goto(config.url, {waitUntil: 'networkidle2', timeout: 15000});
+          await page.screenshot({path: 'screenshot.png', fullPage: true});
+          await browser.close();
+          console.log('✅ Screenshot & config.json saved!');
+        })();
+        EOF
+        node screenshot.js
+    
+    - name: Commit
+      run: |
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add screenshot.png config.json
+        git commit -m "📸 Screenshot + config.json [skip ci]" || exit 0
+        git push || exit 0
