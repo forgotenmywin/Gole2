@@ -1,172 +1,50 @@
-name: 🎥 Screen Record Bot
-on: 
-  push:
-    branches: [main]
-  workflow_dispatch:
+name: Screenshot
+on: [push]
+permissions:
+  contents: write
 
 jobs:
-  record:
+  screenshot:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install deps
-      run: |
-        sudo apt update -y
-        sudo apt install -y xvfb ffmpeg -y
-        
-    - name: Setup Node
-      uses: actions/setup-node@v4
-      with:
-        node-version: 20
+    - uses: browser-actions/setup-chrome@v1
     
-    - name: Install packages
+    - name: Screenshot
       run: |
-        rm -rf node_modules package*.json
         npm init -y
-        npm install puppeteer@latest
-        echo '{"type": "commonjs"}' >> package.json
-    
-    - name: Create record folder & instructions
-      run: |
-        mkdir -p record
-        cat > instructions.txt << 'TXT_EOF'
-        [type چطوری؟]
-        [wait 2]
-        [click 134 432]
-        [type سلام! خوبم]
-        [wait 3]
-        [click 200 300]
-        [type شاهکار بود]
-        [wait 5]
-        TXT_EOF
-    
-    - name: Create record.cjs
-      run: |
-        cat > record.cjs << 'JS_EOF'
+        npm i puppeteer
+        cat > screenshot.js << 'EOF'
         const puppeteer = require('puppeteer');
-        const fs = require('fs/promises');
-
+        const fs = require('fs');
+        
+        // JSON config بساز/بروزرسانی
+        const config = {
+          url: 'https://www.google.com/search?q=%D8%B3%DB%8C%D8%B1+%D8%AA%D8%A7.+%D9%BE%DB%8C%D8%A7%D8%B2+%D8%B4%DB%8C%D9%85%DB%8C+%D8%AF%D9%87%D9%85+pdf&sca_esv=d294e1165ad0ba1e&source=hp&ei=gaL3aZLiNP68i-gPs_ebeQ&biw=384&bih=700&oq=&gs_lp=EhFtb2JpbGUtZ3dzLXdpei1ocCIAKgIIATICECkyAhApMgIQKTICECkyAhApMgIQKTICECkyAhApMgIQKTICECkyAhApMgIQKTICECkyAhApMgIQKUiCBVAAWABwAXgAkAEAmAEAoAEAqgEAuAEByAEAmAIBoAIbqAIPmAMb8QXLDvltgXjH0ZIHATGgBwCyBwC4BwDCBwMzLTHIBxGACAA&sclient=mobile-gws-wiz-hp',
+          width: 1920,
+          height: 1080,
+          timestamp: new Date().toISOString()
+        };
+        fs.writeFileSync('config.json', JSON.stringify(config, null, 2));
+        
         (async () => {
-          try {
-            const data = await fs.readFile('./instructions.txt', 'utf8');
-            const instructions = data.split('\n')
-              .map(l => l.trim())
-              .filter(l => l && l.startsWith('[') && l.endsWith(']'));
-            
-            console.log(`📋 ${instructions.length} دستور\n🎥 شروع...`);
-            
-            const browser = await puppeteer.launch({
-              headless: false,
-              args: ['--no-sandbox', '--disable-dev-shm-usage', '--disable-gpu']
-            });
-            
-            const page = await browser.newPage();
-            await page.setViewport({ width: 1366, height: 768 });
-            await page.goto('https://chatgpt.com', { waitUntil: 'networkidle0' });
-            
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            console.log('🌐 صفحه لود شد');
-
-            const selectors = [
-              'textarea', '[contenteditable="true"]', '[data-id="root"] textarea',
-              'div[contenteditable]', '.ProseMirror', 'prompt-textarea', '[role="textbox"]'
-            ];
-
-            for (let i = 0; i < instructions.length; i++) {
-              const cmd = instructions[i];
-              console.log(`🔄 #${i + 1}/${instructions.length}: ${cmd}`);
-              
-              if (cmd.startsWith('[type ')) {
-                console.log('⌨️  جستجو input...');
-                let found = false;
-                
-                for (const selector of selectors) {
-                  try {
-                    await page.waitForSelector(selector, { timeout: 3000 });
-                    const el = await page.$(selector);
-                    const box = await el.boundingBox();
-                    console.log(`✅ ${selector} : (${Math.round(box.x)}, ${Math.round(box.y)}) ${Math.round(box.width)}x${Math.round(box.height)}`);
-                    
-                    await el.click();
-                    const text = cmd.slice(6, -1);
-                    await page.keyboard.type(text, { delay: 80 });
-                    console.log(`✅ "${text}" تایپ شد`);
-                    found = true;
-                    break;
-                  } catch(e) {}
-                }
-                
-                if (!found) {
-                  console.log('⚠️ input نبود → Enter');
-                  await page.keyboard.press('Enter');
-                }
-                
-              } else if (cmd.startsWith('[click ')) {
-                const [x, y] = cmd.slice(7, -1).split(' ').map(Number);
-                console.log(`🖱️ کلیک: (${x}, ${y})`);
-                await page.mouse.click(x, y);
-              } else if (cmd.startsWith('[wait ')) {
-                const s = parseInt(cmd.slice(6, -1));
-                console.log(`⏳ ${s}s...`);
-                await new Promise(resolve => setTimeout(resolve, s * 1000));
-              }
-            }
-            
-            console.log('🏁 5 ثانیه دیگه ضبط → تمام!');
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            await browser.close();
-            console.log('✅ تمام!');
-          } catch (e) {
-            console.error('❌ خطا:', e.message);
-            process.exit(1);
-          }
+          const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
+          const page = await browser.newPage();
+          await page.setViewport({width: config.width, height: config.height});
+          await page.goto(config.url, {waitUntil: 'networkidle2', timeout: 15000});
+          await page.screenshot({path: 'screenshot.png', fullPage: true});
+          await browser.close();
+          console.log('✅ Screenshot & config.json saved!');
         })();
-        JS_EOF
+        EOF
+        node screenshot.js
     
-    - name: Execute with Xvfb & FFmpeg
+    - name: Commit
       run: |
-        Xvfb :99 -screen 0 1366x768x24 -ac &
-        export DISPLAY=:99
-        sleep 5
-        
-        timeout 120s ffmpeg -f x11grab -s 1366x768 -r 25 -i :99.0 \
-               -t 120 -c:v libx264 -pix_fmt yuv420p -crf 23 \
-               -y ./record/demo_full.mp4 &
-        
-        FFMPEG_PID=$!
-        sleep 5
-        
-        node record.cjs || true
-        
-        sleep 3
-        kill $FFMPEG_PID 2>/dev/null || true
-        pkill -f ffmpeg || true
-        sleep 2
-        
-        mv *.mp4 record/ 2>/dev/null || true
-        mv instructions.txt record/ 2>/dev/null || true
-        mv record.cjs record/ 2>/dev/null || true
-        mv package*.json record/ 2>/dev/null || true
-        
-        ls -la record/ || echo "record خالی"
-        du -sh record/* 2>/dev/null || echo "فایل نیست"
-    
-    - name: Commit record files
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add record/ || echo "record خالی"
-        if ! git diff --staged --quiet; then
-          git commit -m "🎥 Add screen recording [skip ci]"
-          git push
-          echo "✅ Push شد!"
-        else
-          echo "هیچ تغییری نیست"
-        fi
-    
-    - uses: actions/upload-artifact@v4
-      with:
-        name: 🎥-recording
-        path: record/
-        retention-days: 7
+        git config user.name "github-actions"
+        git config user.email "actions@github.com"
+        git add screenshot.png config.json
+        git commit -m "📸 Screenshot + config.json [skip ci]" || exit 0
+        git push || exit 0
