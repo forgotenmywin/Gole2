@@ -10,7 +10,12 @@ jobs:
         -H "Content-Type: application/json" \
         -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}' > result.txt
     - run: |
-        echo "Status: $(cat result.txt)"
-        echo "## Result\n\`\`\`\n$(cat result.txt)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
-        cp result.txt 📋-report.txt
-        git add 📋-report.txt && git commit -m "Test" && git push || true
+        echo "✅ Status: $(cat result.txt)"
+        echo -e "# Pipedream Test\n## \`\`\`json\n$(cat result.txt)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
+    - name: Save Report
+      run: |
+        git config user.name "GitHub Action"
+        git config user.email "action@github.com"
+        echo "$(cat result.txt)" > 📋-report.txt
+        git add 📋-report.txt
+        git diff --staged --quiet || git commit -m "📋 Test result" && git push
