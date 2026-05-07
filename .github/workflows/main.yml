@@ -1,13 +1,16 @@
-name: 🔍 Pipedream Test
+name: 🔍 Client ID Test
 on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
     - run: |
-        echo "🔍 CLIENT_ID: '${{ secrets.CLIENT_ID }}'"
-        echo "🌐 URL: https://o_zwIrG4g.m.pipedream.net"
-        curl -k -v -X POST https://o_zwIrG4g.m.pipedream.net \
-        -H "Content-Type: application/json" \
-        -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}'
+        echo "🔍 CLIENT_ID: ${{ secrets.CLIENT_ID }}"
+        echo "🔍 Length: ${#CLIENT_ID}"
+        
+        RESPONSE=$(curl -s -w "\nSTATUS:%{http_code}" \
+          "https://api.pipedream.com/v1/clients/${{ secrets.CLIENT_ID }}" \
+          -H "Authorization: Bearer ${{ secrets.CLIENT_SECRET }}")
+        
+        echo "🌐 Client API:"
+        echo "$RESPONSE"
