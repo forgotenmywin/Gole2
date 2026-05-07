@@ -1,42 +1,20 @@
-name: Verify Pipedream & Save Result
+name: 🔍 Pipedream Test
 on: [push]
-
 jobs:
-  test-pipedream:
+  test:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
-    - name: Test Pipedream Connection
-      id: test
-      run: |
-        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://eo.o_zwIrG4g.m.pipedream.net" \
+    - run: |
+        curl -X POST https://eo.o_zwIrG4g.m.pipedream.net \
         -H "Content-Type: application/json" \
-        -d '{
-          "client_id": "OBYs9zkn8d1x2oYwtAinGLUGALPXD_zSBeQXfURuQKw",
-          "workspace_id": "o_zwIrG4g",
-          "name": "kingking00"
-        }')
-        
-        HTTP_CODE=${RESPONSE##*$'\n'}
-        BODY=${RESPONSE%$'\n'*}
-        
-        echo "HTTP Status: $HTTP_CODE" > pipedream-test.txt
-        echo "Response: $BODY" >> pipedream-test.txt
-        echo "Timestamp: $(date)" >> pipedream-test.txt
-        
-        if [ "$HTTP_CODE" = "200" ]; then
-          echo "✅ Pipedream Connected!" >> pipedream-test.txt
-        else
-          echo "❌ Connection Failed!" >> pipedream-test.txt
-        fi
-        
-        echo "file created: pipedream-test.txt"
-    
-    - name: Commit result
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add pipedream-test.txt
-        git diff --staged --quiet || git commit -m "Pipedream test result [$(date)]"
+        -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}' > result.txt
+      env:
+        CLIENT_ID: ${{ secrets.CLIENT_ID }}
+    - run: |
+        echo "## Result" >> $GITHUB_STEP_SUMMARY
+        cat result.txt >> $GITHUB_STEP_SUMMARY
+        cp result.txt 📋-report.txt
+        git add 📋-report.txt
+        git commit -m "Test result" || true
         git push
