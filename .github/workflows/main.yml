@@ -1,22 +1,17 @@
-name: 🔍 Client ID Debug
+name: Test Pipedream OAuth
 on: [push]
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - name: 📋 Full Debug
+    - name: Test Pipedream Client
       env:
-        CID: ${{ secrets.CLIENT_ID }}
-        CS: ${{ secrets.CLIENT_SECRET }}
+        CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
+        CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        echo "::group::🔍 Secrets Debug"
-        echo "CLIENT_ID: $CID"
-        echo "Length: ${#CID}"
-        echo "Secret chars: ${#CS}"
-        echo "::endgroup::"
-        
-        echo "::group::🌐 Client API Test"
-        curl -v -s "https://api.pipedream.com/v1/clients/$CID" \
-          -H "Authorization: Bearer $CS" \
-          -w "STATUS:%{http_code}\n"
-        echo "::endgroup::"
+        curl -X POST https://api.pipedream.com/oauth/token \
+          -d "client_id=$CLIENT_ID" \
+          -d "client_secret=$CLIENT_SECRET" \
+          -d "grant_type=client_credentials" \
+          -H "Content-Type: application/x-www-form-urlencoded"
