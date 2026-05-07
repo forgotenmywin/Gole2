@@ -1,22 +1,24 @@
 name: Pipedream Test
-on: 
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+on: [push, workflow_dispatch]
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - name: Test Auth
+    - name: 🚀 Test Pipedream Auth
       env:
         ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        echo "ID: ${ID:0:8}..."
-        echo "Secret OK: $([ -n "$SECRET" ] && echo yes || echo no)"
+        echo "⏳ صبر ۳۰ ثانیه..."
+        sleep 30
         
-        curl -v -X POST https://api.pipedream.com/oauth/token \
+        echo "🆔 CLIENT_ID: ${ID:0:10}..."
+        echo "🔐 SECRET: ${#SECRET} کاراکتر"
+        
+        echo "🌐 تست API..."
+        curl -s -w "HTTP_CODE: %{http_code}\n" \
+          -X POST https://api.pipedream.com/oauth/token \
           -d "client_id=$ID" \
           -d "client_secret=$SECRET" \
           -d "grant_type=client_credentials"
