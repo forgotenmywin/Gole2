@@ -1,16 +1,22 @@
-name: 🔍 Client ID Test
+name: 🔍 Client ID Debug
 on: [push]
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - run: |
-        echo "🔍 CLIENT_ID: ${{ secrets.CLIENT_ID }}"
-        echo "🔍 Length: ${#CLIENT_ID}"
+    - name: 📋 Full Debug
+      env:
+        CID: ${{ secrets.CLIENT_ID }}
+        CS: ${{ secrets.CLIENT_SECRET }}
+      run: |
+        echo "::group::🔍 Secrets Debug"
+        echo "CLIENT_ID: $CID"
+        echo "Length: ${#CID}"
+        echo "Secret chars: ${#CS}"
+        echo "::endgroup::"
         
-        RESPONSE=$(curl -s -w "\nSTATUS:%{http_code}" \
-          "https://api.pipedream.com/v1/clients/${{ secrets.CLIENT_ID }}" \
-          -H "Authorization: Bearer ${{ secrets.CLIENT_SECRET }}")
-        
-        echo "🌐 Client API:"
-        echo "$RESPONSE"
+        echo "::group::🌐 Client API Test"
+        curl -v -s "https://api.pipedream.com/v1/clients/$CID" \
+          -H "Authorization: Bearer $CS" \
+          -w "STATUS:%{http_code}\n"
+        echo "::endgroup::"
