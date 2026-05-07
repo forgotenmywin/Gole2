@@ -1,50 +1,42 @@
-name: Screenshot
+name: Verify Pipedream & Save Result
 on: [push]
-permissions:
-  contents: write
 
 jobs:
-  screenshot:
+  test-pipedream:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
     - uses: actions/checkout@v4
     
-    - uses: browser-actions/setup-chrome@v1
-    
-    - name: Screenshot
+    - name: Test Pipedream Connection
+      id: test
       run: |
-        npm init -y
-        npm i puppeteer
-        cat > screenshot.js << 'EOF'
-        const puppeteer = require('puppeteer');
-        const fs = require('fs');
+        RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://eo.o_zwIrG4g.m.pipedream.net" \
+        -H "Content-Type: application/json" \
+        -d '{
+          "client_id": "OBYs9zkn8d1x2oYwtAinGLUGALPXD_zSBeQXfURuQKw",
+          "workspace_id": "o_zwIrG4g",
+          "name": "kingking00"
+        }')
         
-        // JSON config بساز/بروزرسانی
-        const config = {
-          url: 'https://www.google.com/search?q=%D8%B3%DB%8C%D8%B1+%D8%AA%D8%A7.+%D9%BE%DB%8C%D8%A7%D8%B2+%D8%B4%DB%8C%D9%85%DB%8C+%D8%AF%D9%87%D9%85+pdf&sca_esv=d294e1165ad0ba1e&source=hp&ei=gaL3aZLiNP68i-gPs_ebeQ&biw=384&bih=700&oq=&gs_lp=EhFtb2JpbGUtZ3dzLXdpei1ocCIAKgIIATICECkyAhApMgIQKTICECkyAhApMgIQKTICECkyAhApMgIQKTICECkyAhApMgIQKTICECkyAhApMgIQKUiCBVAAWABwAXgAkAEAmAEAoAEAqgEAuAEByAEAmAIBoAIbqAIPmAMb8QXLDvltgXjH0ZIHATGgBwCyBwC4BwDCBwMzLTHIBxGACAA&sclient=mobile-gws-wiz-hp',
-          width: 1920,
-          height: 1080,
-          timestamp: new Date().toISOString()
-        };
-        fs.writeFileSync('config.json', JSON.stringify(config, null, 2));
+        HTTP_CODE=${RESPONSE##*$'\n'}
+        BODY=${RESPONSE%$'\n'*}
         
-        (async () => {
-          const browser = await puppeteer.launch({headless: true, args: ['--no-sandbox']});
-          const page = await browser.newPage();
-          await page.setViewport({width: config.width, height: config.height});
-          await page.goto(config.url, {waitUntil: 'networkidle2', timeout: 15000});
-          await page.screenshot({path: 'screenshot.png', fullPage: true});
-          await browser.close();
-          console.log('✅ Screenshot & config.json saved!');
-        })();
-        EOF
-        node screenshot.js
+        echo "HTTP Status: $HTTP_CODE" > pipedream-test.txt
+        echo "Response: $BODY" >> pipedream-test.txt
+        echo "Timestamp: $(date)" >> pipedream-test.txt
+        
+        if [ "$HTTP_CODE" = "200" ]; then
+          echo "✅ Pipedream Connected!" >> pipedream-test.txt
+        else
+          echo "❌ Connection Failed!" >> pipedream-test.txt
+        fi
+        
+        echo "file created: pipedream-test.txt"
     
-    - name: Commit
+    - name: Commit result
       run: |
-        git config user.name "github-actions"
-        git config user.email "actions@github.com"
-        git add screenshot.png config.json
-        git commit -m "📸 Screenshot + config.json [skip ci]" || exit 0
-        git push || exit 0
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add pipedream-test.txt
+        git diff --staged --quiet || git commit -m "Pipedream test result [$(date)]"
+        git push
