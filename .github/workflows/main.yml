@@ -1,4 +1,4 @@
-name: 🆕 Create Pipedream Workflow
+name: 🆕 Create Pipedream Workflow FIXED
 on: [push]
 jobs:
   create:
@@ -23,20 +23,14 @@ jobs:
         TOKEN: ${{ steps.auth.outputs.token }}
       run: |
         echo "=== CREATE WORKFLOW ==="
-        curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+        RESPONSE=$(curl -s -w "\nHTTP: %{http_code}" \
+          -X POST -H "Authorization: Bearer $TOKEN" \
           -H "Content-Type: application/json" \
           https://api.pipedream.com/v1/workflows \
           -d '{
-            "name": "GitHub Auto-Created 🎯",
-            "description": "از GitHub Actions ساخته شد!",
-            "source": {
-              "http": "https://api.github.com/users/octocat"
-            },
-            "steps": [{
-              "type": "node.js",
-              "name": "Log Data",
-              "code": "console.log(`Workflow ID: ${{ github.run_id }}`);"
-            }]
-          }' | jq '.data.id, .data.name'
-        
-        echo "✅ Workflow ساخته شد!"
+            "name": "GitHub Auto 🎯",
+            "description": "ساخته شد: '"${{ github.run_id }}"'",
+            "source": {"http": "https://httpbin.org/json"}
+          }')
+        echo "$RESPONSE" | jq .
+        echo "✅ تمام!"
