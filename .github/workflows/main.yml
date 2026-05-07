@@ -5,17 +5,45 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - run: |
-        curl -k -X POST https://o_zwIrG4g.m.pipedream.net \
+    
+    # Debug step اول
+    - name: 🔍 Check CLIENT_ID
+      run: |
+        echo "🔍 CLIENT_ID exists: ${{ secrets.CLIENT_ID != '' }}"
+        echo "🔍 CLIENT_ID length: ${#CLIENT_ID}"
+    
+    # Test endpoint connectivity
+    - name: 🌐 Test Endpoint
+      run: |
+        curl -k -I https://o_zwIrG4g.m.pipedream.net || echo "❌ Endpoint down!"
+    
+    # Main API call با verbose logging
+    - name: 🚀 API Test
+      id: api-test
+      run: |
+        RESPONSE=$(curl -k -s -w "\nHTTPSTATUS:%{http_code}" -X POST https://o_zwIrG4g.m.pipedream.net \
         -H "Content-Type: application/json" \
-        -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}' > result.txt
-    - run: |
+        -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}')
+        
+        echo "$RESPONSE" > result.txt
+        HTTP_STATUS=$(echo "$RESPONSE" | grep HTTPSTATUS | cut -d: -f2- | tr -d '[:space:]')
+        echo "status=$HTTP_STATUS" >> $GITHUB_OUTPUT
+        
+        echo "📊 Full Response:"
+        cat result.txt
+        
+    - name: 📋 Show Result
+      if: always()
+      run: |
         echo "✅ Status: $(cat result.txt)"
-        echo -e "# Pipedream Test\n## \`\`\`json\n$(cat result.txt)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
-    - name: Save Report
+        echo -e "# Pipedream Test\n## HTTP ${{ steps.api-test.outputs.status }}\n\`\`\`json\n$(cat result.txt)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
+    
+    # فقط اگه موفق بود commit کن
+    - name: 💾 Save Report
+      if: steps.api-test.outputs.status == '200'
       run: |
         git config user.name "GitHub Action"
         git config user.email "action@github.com"
         echo "$(cat result.txt)" > 📋-report.txt
         git add 📋-report.txt
-        git diff --staged --quiet || git commit -m "📋 Test result" && git push
+        git diff --staged --quiet || git commit -m "📋 Test result: SUCCESS" && git push
