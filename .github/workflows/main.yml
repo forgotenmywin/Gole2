@@ -1,32 +1,41 @@
 name: 🔍 Pipedream Test
-on: [push]
+
+on:
+  push:
+
 jobs:
-  test:
+  test-client-id:
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: 🔍 Test API
-      id: api
-      run: |
-        RESPONSE=$(curl -k -s -w "\nSTATUS:%{http_code}" \
-          -X POST https://o_zwIrG4g.m.pipedream.net \
-          -H "Content-Type: application/json" \
-          -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}')
-        echo "$RESPONSE" > result.txt
-        STATUS=$(echo "$RESPONSE" | grep STATUS | cut -d: -f2-)
-        echo "status=$STATUS" >> $GITHUB_OUTPUT
-        echo "body=$(cat result.txt)" >> $GITHUB_OUTPUT
-    
-    - name: 📊 Summary
-      run: |
-        echo "✅ Status Code: ${{ steps.api.outputs.status }}"
-        echo "📄 Response: ${{ steps.api.outputs.body }}"
-        echo -e "# Pipedream\n**Status:** ${{ steps.api.outputs.status }}\n\`\`\`json\n${{ steps.api.outputs.body }}\n\`\`\`" >> $GITHUB_STEP_SUMMARY
-    
-    # Artifact به جای git push
-    - name: 💾 Upload Report
-      uses: actions/upload-artifact@v4
-      with:
-        name: pipedream-report
-        path: result.txt
+      - uses: actions/checkout@v4
+
+      - name: Call Pipedream (test client_id)
+        env:
+          CLIENT_ID: ${{ secrets.CLIENT_ID }}
+        run: |
+          set -e
+
+          echo "Sending client_id to Pipedream..."
+          echo "CLIENT_ID length: ${#CLIENT_ID}"  # فقط طول رو می‌زنیم که خود مقدار لو نره
+
+          curl -k -sS -X POST "https://o_zwIrG4g.m.pipedream.net" \
+            -H "Content-Type: application/json" \
+            -d "{\"client_id\":\"${CLIENT_ID}\",\"test\":true}" \
+            | tee result.txt
+
+      - name: Summarize result
+        run: |
+          echo "✅ Status: $(cat result.txt)"
+
+          echo "## Result" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`${{ '\n' }}" >> $GITHUB_STEP_SUMMARY
+          cat result.txt >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`${{ '\n' }}" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload report (optional)
+        uses: actions/upload-artifact@v4
+        with:
+          name: pipedream-report
+          path: result.txt
+
