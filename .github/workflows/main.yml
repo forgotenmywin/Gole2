@@ -1,26 +1,34 @@
-name: 📋 List Workflows
-on: [workflow_dispatch]  # Manual trigger
+name: 📋 List Pipedream Workflows
+on: [push]  # هر push
 jobs:
   list:
     runs-on: ubuntu-latest
     steps:
+    - name: 😴 ۳۰s صبر
+      run: sleep 30
+    
     - name: 🔐 Get Token
       id: auth
       env:
         ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
+        echo "=== CLIENT INFO ==="
+        echo "ID Length: ${#ID}"
+        echo "SECRET Length: ${#SECRET}"
+        
         TOKEN=$(curl -s -X POST \
           -u "$ID:$SECRET" \
           -d "grant_type=client_credentials" \
           https://api.pipedream.com/v1/oauth/token | jq -r .access_token)
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
+        echo "✅ Token OK"
     
     - name: 📋 List Workflows
       env:
         TOKEN: ${{ steps.auth.outputs.token }}
       run: |
-        echo "📋 همه Workflows:"
+        echo "=== WORKFLOWS ==="
         curl -s -H "Authorization: Bearer $TOKEN" \
           https://api.pipedream.com/v1/workflows \
-          | jq '.data[] | {id, name, active}'
+          | jq '.data[] | {id, name, active, created_at}'
