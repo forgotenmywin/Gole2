@@ -1,7 +1,7 @@
-name: 📋 List Pipedream Workflows
-on: [push]  # هر push
+name: 🆕 Create Pipedream Workflow
+on: [push]
 jobs:
-  list:
+  create:
     runs-on: ubuntu-latest
     steps:
     - name: 😴 ۳۰s صبر
@@ -13,22 +13,30 @@ jobs:
         ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        echo "=== CLIENT INFO ==="
-        echo "ID Length: ${#ID}"
-        echo "SECRET Length: ${#SECRET}"
-        
-        TOKEN=$(curl -s -X POST \
-          -u "$ID:$SECRET" \
+        TOKEN=$(curl -s -X POST -u "$ID:$SECRET" \
           -d "grant_type=client_credentials" \
           https://api.pipedream.com/v1/oauth/token | jq -r .access_token)
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
-        echo "✅ Token OK"
     
-    - name: 📋 List Workflows
+    - name: 🆕 Create Workflow
       env:
         TOKEN: ${{ steps.auth.outputs.token }}
       run: |
-        echo "=== WORKFLOWS ==="
-        curl -s -H "Authorization: Bearer $TOKEN" \
+        echo "=== CREATE WORKFLOW ==="
+        curl -s -X POST -H "Authorization: Bearer $TOKEN" \
+          -H "Content-Type: application/json" \
           https://api.pipedream.com/v1/workflows \
-          | jq '.data[] | {id, name, active, created_at}'
+          -d '{
+            "name": "GitHub Auto-Created 🎯",
+            "description": "از GitHub Actions ساخته شد!",
+            "source": {
+              "http": "https://api.github.com/users/octocat"
+            },
+            "steps": [{
+              "type": "node.js",
+              "name": "Log Data",
+              "code": "console.log(`Workflow ID: ${{ github.run_id }}`);"
+            }]
+          }' | jq '.data.id, .data.name'
+        
+        echo "✅ Workflow ساخته شد!"
