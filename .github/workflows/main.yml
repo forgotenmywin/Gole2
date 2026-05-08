@@ -1,11 +1,11 @@
-name: ✅ Project Status Check
+name: 📋 List All Projects
 on: [push]
 jobs:
-  check:
+  list:
     runs-on: ubuntu-latest
     steps:
-    - name: 📦 Install tools
-      run: sudo apt-get update -qq && sudo apt-get install -y jq
+    - name: 📦 Setup
+      run: sudo apt-get install -y jq
 
     - name: 🔐 Token
       id: token
@@ -17,30 +17,22 @@ jobs:
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
           -d 'grant_type=client_credentials')
-        echo "TOKEN OK"
-        echo "$RESPONSE"
         TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-    - name: 🔍 Project proj_AVsiPRB
+    - name: 📋 List ALL Projects
       env:
         ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        echo "=== CHECKING proj_AVsiPRB ==="
-        RESPONSE=$(curl -s -i \
+        echo "=== YOUR PROJECTS ==="
+        RESPONSE=$(curl -s \
           -H "Authorization: Bearer $ACCESS_TOKEN" \
-          https://api.pipedream.com/v1/projects/proj_AVsiPRB)
+          https://api.pipedream.com/v1/projects)
         
-        echo "=== FULL RESPONSE ==="
-        echo "$RESPONSE"
+        echo "$RESPONSE" | jq '.data[]? | {id, name}'
         
-        # Extract status
-        HTTP_CODE=$(echo "$RESPONSE" | head -1 | cut -d' ' -f2)
-        echo "HTTP STATUS: $HTTP_CODE"
+        COUNT=$(echo "$RESPONSE" | jq '.data | length')
+        echo "Total projects: $COUNT"
         
-        if echo "$RESPONSE" | grep -q '"id"'; then
-          echo "✅ PROJECT EXISTS!"
-          echo "$RESPONSE" | jq '.id, .name, .status'
-        else
-          echo "❌ PROJECT NOT FOUND"
-        fi
+        # Search for similar
+        echo "$RESPONSE" | jq -r '.data[]? | select(.id | contains("AVsi")) | .id + " → " + .name'
