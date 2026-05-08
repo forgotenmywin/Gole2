@@ -1,55 +1,37 @@
-name: 🚀 Create First Project
+name: 🔗 Connect GitHub Repo to Pipedream
 on: [push]
 jobs:
-  create:
+  connect:
     runs-on: ubuntu-latest
     steps:
-    - name: 📦 Setup
-      run: sudo apt-get install -y jq
-
-    - name: 🔐 Token
+    - name: 🔐 OAuth Token
       id: token
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        RESPONSE=$(curl -s \
+        TOKEN=$(curl -s \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
-          -d 'grant_type=client_credentials')
-        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+          -d 'grant_type=client_credentials' | jq -r '.access_token')
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-    - name: 📋 Check Projects
+    - name: 📋 List Workflows (GitHub Sources)
       env:
         ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        RESPONSE=$(curl -s \
+        echo "=== GitHub Sources ==="
+        curl -s \
           -H "Authorization: Bearer $ACCESS_TOKEN" \
-          https://api.pipedream.com/v1/projects)
+          https://api.pipedream.com/v1/sources | \
+        jq '.data[]? | select(.source_type == "github") | {id, name, repo}'
         
-        COUNT=$(echo "$RESPONSE" | jq '.data | length // 0')
-        echo "📊 Current projects: $COUNT"
-        
-        if [ "$COUNT" = "0" ]; then
-          echo "🚀 Creating FIRST project..."
-        else
-          echo "$RESPONSE" | jq -r '.data[] | "\(.id) → \(.name)"'
-          exit 0
-        fi
-
-    - name: 🆕 Create Project "MyFirstWorkflow"
-      if: always()
+    - name: 🔗 Check GitHub Webhook Status
       env:
         ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        RESPONSE=$(curl -s -X POST \
+        # Pipedream GitHub App webhook status
+        curl -s \
           -H "Authorization: Bearer $ACCESS_TOKEN" \
-          -H "Content-Type: application/json" \
-          -d '{"name":"MyFirstWorkflow"}' \
-          https://api.pipedream.com/v1/projects)
-        
-        echo "$RESPONSE"
-        PROJECT_ID=$(echo "$RESPONSE" | jq -r '.id')
-        echo "✅ Created: $PROJECT_ID"
-        echo "project_id=$PROJECT_ID" >> $GITHUB_ENV
+          https://api.pipedream.com/v1/sources/github | \
+        jq '{sources: .data | length}'
