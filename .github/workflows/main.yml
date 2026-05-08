@@ -1,38 +1,54 @@
-name: 📋 List All Projects
+name: 📋 List Projects (Verbose)
 on: [push]
 jobs:
   list:
     runs-on: ubuntu-latest
     steps:
-    - name: 📦 Setup
-      run: sudo apt-get install -y jq
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 20
 
-    - name: 🔐 Token
+    - name: 📦 Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+
+    - name: 🔐 Get Token
       id: token
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
+        echo "::group::Token Request"
+        curl -v \
+          -X POST https://api.pipedream.com/v1/oauth/token \
+          -u "${CLIENT_ID}:${CLIENT_SECRET}" \
+          -d 'grant_type=client_credentials'
+        echo "::endgroup::"
+        
         RESPONSE=$(curl -s \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
           -d 'grant_type=client_credentials')
         TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-        echo "token=$TOKEN" >> $GITHUB_OUTPUT
+        echo "TOKEN=${TOKEN:0:20}..." >> $GITHUB_ENV
+        echo "✅ Token ready"
 
-    - name: 📋 List ALL Projects
-      env:
-        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
+    - name: 📋 List Projects
       run: |
-        echo "=== YOUR PROJECTS ==="
+        echo "::group::ALL PROJECTS"
+        echo "🔍 Calling: https://api.pipedream.com/v1/projects"
+        
+        curl -v -s \
+          -H "Authorization: Bearer $TOKEN" \
+          https://api.pipedream.com/v1/projects | jq .
+        
+        echo "::endgroup::"
+        
+        # Summary
         RESPONSE=$(curl -s \
-          -H "Authorization: Bearer $ACCESS_TOKEN" \
+          -H "Authorization: Bearer $TOKEN" \
           https://api.pipedream.com/v1/projects)
         
-        echo "$RESPONSE" | jq '.data[]? | {id, name}'
-        
         COUNT=$(echo "$RESPONSE" | jq '.data | length')
-        echo "Total projects: $COUNT"
+        echo "📊 Total: $COUNT projects"
         
-        # Search for similar
-        echo "$RESPONSE" | jq -r '.data[]? | select(.id | contains("AVsi")) | .id + " → " + .name'
+        echo "$RESPONSE" | jq -r '.data[] | "\(.id) → \(.name)"'
