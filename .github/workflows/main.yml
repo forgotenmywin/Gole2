@@ -1,37 +1,38 @@
-name: 🔗 Connect GitHub Repo to Pipedream
+name: 🔗 GitHub Sources (Full Log)
 on: [push]
 jobs:
-  connect:
+  debug:
     runs-on: ubuntu-latest
     steps:
-    - name: 🔐 OAuth Token
+    - name: 🔐 Get Token
       id: token
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        TOKEN=$(curl -s \
+        echo "=== TOKEN ==="
+        RESPONSE=$(curl -v -s \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
-          -d 'grant_type=client_credentials' | jq -r '.access_token')
+          -d 'grant_type=client_credentials')
+        echo "$RESPONSE"
+        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+        echo "TOKEN: ${TOKEN:0:10}..."
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-    - name: 📋 List Workflows (GitHub Sources)
+    - name: 📋 ALL Sources
       env:
         ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        echo "=== GitHub Sources ==="
-        curl -s \
+        echo "=== SOURCES API ==="
+        RESPONSE=$(curl -v -s \
           -H "Authorization: Bearer $ACCESS_TOKEN" \
-          https://api.pipedream.com/v1/sources | \
-        jq '.data[]? | select(.source_type == "github") | {id, name, repo}'
+          https://api.pipedream.com/v1/sources)
+        echo "STATUS: $(echo "$RESPONSE" | head -1)"
+        echo "$RESPONSE" | jq .
         
-    - name: 🔗 Check GitHub Webhook Status
-      env:
-        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
-      run: |
-        # Pipedream GitHub App webhook status
-        curl -s \
-          -H "Authorization: Bearer $ACCESS_TOKEN" \
-          https://api.pipedream.com/v1/sources/github | \
-        jq '{sources: .data | length}'
+        echo "=== GITHUB SOURCES ==="
+        echo "$RESPONSE" | jq '.data[]? | select(.source_type? == "github") | {id, name, repo}'
+        
+        COUNT=$(echo "$RESPONSE" | jq '.data | length // empty')
+        echo "📊 Total sources: ${COUNT:-0}"
