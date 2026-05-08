@@ -1,62 +1,55 @@
-name: Pipedream Project Check ✅
+name: 🔍 Pipedream Project Checker
 on: [push]
+
 jobs:
-  check-project:
+  check:
     runs-on: ubuntu-latest
     steps:
-    - name: 📦 Install jq
-      run: sudo apt-get update && sudo apt-get install -y jq
+    - name: 📦 Setup
+      run: |
+        sudo apt-get update -qq
+        sudo apt-get install -y jq curl
 
-    - name: 🔐 Get OAuth Token
-      id: oauth
+    - name: 🔐 OAuth Token
+      id: token
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        echo "=== CLIENT CHECK ==="
-        echo "CLIENT_ID length: ${#CLIENT_ID:-0}"
-        echo "CLIENT_SECRET length: ${#CLIENT_SECRET:-0}"
-        
+        # Check secrets
         if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
-          echo "❌ Secrets missing!"
+          echo "❌ Missing secrets!"
           exit 1
         fi
         
-        echo "=== CURL TOKEN ==="
-        RESPONSE=$(curl -s -i -w "\nSTATUS:%{http_code}" \
+        # Get token
+        TOKEN_RESPONSE=$(curl -s -f \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
-          -d "grant_type=client_credentials")
+          -d 'grant_type=client_credentials')
         
-        echo "$RESPONSE"
-        STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/.*STATUS://')
-        echo "HTTP Status: $STATUS"
-        
-        if [ "$STATUS" != "200" ]; then
-          echo "❌ Token failed!"
-          exit 1
-        fi
-        
-        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-        echo "✅ Token OK: ${TOKEN:0:10}..."
-        echo "token=$TOKEN" >> $GITHUB_OUTPUT
+        ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
+        echo "✅ Token: ${ACCESS_TOKEN:0:15}..."
+        echo "token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
 
-    - name: 🔍 Check Project proj_AVsiPRB
+    - name: 🔍 Check proj_AVsiPRB
       env:
-        ACCESS_TOKEN: ${{ steps.oauth.outputs.token }}
-        PROJECT_ID: proj_AVsiPRB
+        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        echo "=== PROJECT: $PROJECT_ID ==="
-        RESPONSE=$(curl -s -i -w "\nSTATUS:%{http_code}" \
+        PROJECT_ID="proj_AVsiPRB"
+        echo "::group::Project $PROJECT_ID"
+        
+        PROJ_RESPONSE=$(curl -s -f \
           -H "Authorization: Bearer $ACCESS_TOKEN" \
           "https://api.pipedream.com/v1/projects/$PROJECT_ID")
         
-        echo "$RESPONSE"
-        STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/.*STATUS://')
-        
-        if [ "$STATUS" = "200" ]; then
-          echo "✅ PROJECT EXISTS!"
-          echo "$RESPONSE" | jq '.id, .name, .status'
+        if echo "$PROJ_RESPONSE" | jq -e '.id' > /dev/null; then
+          echo "✅ EXISTS"
+          echo "ID: $(echo "$PROJ_RESPONSE" | jq -r '.id')"
+          echo "Name: $(echo "$PROJ_RESPONSE" | jq -r '.name')"
+          echo "Status: $(echo "$PROJ_RESPONSE" | jq -r '.status')"
         else
-          echo "❌ NOT FOUND (Status: $STATUS)"
+          echo "❌ NOT FOUND"
+          echo "Response: $PROJ_RESPONSE"
         fi
+        echo "::endgroup::"
