@@ -1,38 +1,34 @@
-name: 🔗 GitHub Sources (Full Log)
+name: 📋 List Workflows & Components
 on: [push]
 jobs:
-  debug:
+  explore:
     runs-on: ubuntu-latest
     steps:
-    - name: 🔐 Get Token
+    - name: 🔐 Token
       id: token
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        echo "=== TOKEN ==="
-        RESPONSE=$(curl -v -s \
+        TOKEN=$(curl -s \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
-          -d 'grant_type=client_credentials')
-        echo "$RESPONSE"
-        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-        echo "TOKEN: ${TOKEN:0:10}..."
+          -d 'grant_type=client_credentials' | jq -r '.access_token')
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-    - name: 📋 ALL Sources
+    - name: 🔍 Explore Resources
       env:
         ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        echo "=== SOURCES API ==="
-        RESPONSE=$(curl -v -s \
-          -H "Authorization: Bearer $ACCESS_TOKEN" \
-          https://api.pipedream.com/v1/sources)
-        echo "STATUS: $(echo "$RESPONSE" | head -1)"
-        echo "$RESPONSE" | jq .
-        
-        echo "=== GITHUB SOURCES ==="
-        echo "$RESPONSE" | jq '.data[]? | select(.source_type? == "github") | {id, name, repo}'
-        
-        COUNT=$(echo "$RESPONSE" | jq '.data | length // empty')
-        echo "📊 Total sources: ${COUNT:-0}"
+        echo "=== 1. User Info ==="
+        curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+          https://api.pipedream.com/v1/user | jq .
+
+        echo "=== 2. Teams ==="
+        curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+          https://api.pipedream.com/v1/teams | jq '.data[]? | .name'
+
+        echo "=== 3. Connected Apps ==="
+        curl -s -H "Authorization: Bearer $ACCESS_TOKEN" \
+          https://api.pipedream.com/v1/integrations | \
+        jq '.data[]? | select(.provider == "github") | {name, id}'
