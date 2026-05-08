@@ -1,26 +1,44 @@
-name: Pipedream Project Check
+name: Pipedream Project Check ✅
 on: [push]
 jobs:
   check-project:
     runs-on: ubuntu-latest
     steps:
+    - name: 📦 Install jq
+      run: sudo apt-get update && sudo apt-get install -y jq
+
     - name: 🔐 Get OAuth Token
       id: oauth
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        echo "=== GET TOKEN ==="
-        RESPONSE=$(curl -s -w "\nSTATUS:%{http_code}" \
+        echo "=== CLIENT CHECK ==="
+        echo "CLIENT_ID length: ${#CLIENT_ID:-0}"
+        echo "CLIENT_SECRET length: ${#CLIENT_SECRET:-0}"
+        
+        if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
+          echo "❌ Secrets missing!"
+          exit 1
+        fi
+        
+        echo "=== CURL TOKEN ==="
+        RESPONSE=$(curl -s -i -w "\nSTATUS:%{http_code}" \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
           -d "grant_type=client_credentials")
         
-        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-        STATUS=$(echo "$RESPONSE" | tr -d '\n' | sed -e 's/.*STATUS://')
+        echo "$RESPONSE"
+        STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/.*STATUS://')
+        echo "HTTP Status: $STATUS"
         
-        echo "Status: $STATUS"
-        echo "Token: ${TOKEN:0:20}..."
+        if [ "$STATUS" != "200" ]; then
+          echo "❌ Token failed!"
+          exit 1
+        fi
+        
+        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+        echo "✅ Token OK: ${TOKEN:0:10}..."
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
     - name: 🔍 Check Project proj_AVsiPRB
@@ -28,8 +46,17 @@ jobs:
         ACCESS_TOKEN: ${{ steps.oauth.outputs.token }}
         PROJECT_ID: proj_AVsiPRB
       run: |
-        echo "=== CHECK $PROJECT_ID ==="
-        curl -s -w "\nSTATUS: %{http_code}\n" \
+        echo "=== PROJECT: $PROJECT_ID ==="
+        RESPONSE=$(curl -s -i -w "\nSTATUS:%{http_code}" \
           -H "Authorization: Bearer $ACCESS_TOKEN" \
-          "https://api.pipedream.com/v1/projects/$PROJECT_ID" \
-          | jq '.id, .name, .status // empty'
+          "https://api.pipedream.com/v1/projects/$PROJECT_ID")
+        
+        echo "$RESPONSE"
+        STATUS=$(echo "$RESPONSE" | tail -1 | sed 's/.*STATUS://')
+        
+        if [ "$STATUS" = "200" ]; then
+          echo "✅ PROJECT EXISTS!"
+          echo "$RESPONSE" | jq '.id, .name, .status'
+        else
+          echo "❌ NOT FOUND (Status: $STATUS)"
+        fi
