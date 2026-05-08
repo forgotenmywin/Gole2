@@ -1,54 +1,55 @@
-name: 📋 List Projects (Verbose)
+name: 🚀 Create First Project
 on: [push]
 jobs:
-  list:
+  create:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 20
+    - name: 📦 Setup
+      run: sudo apt-get install -y jq
 
-    - name: 📦 Install jq
-      run: sudo apt-get update && sudo apt-get install -y jq
-
-    - name: 🔐 Get Token
+    - name: 🔐 Token
       id: token
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        echo "::group::Token Request"
-        curl -v \
-          -X POST https://api.pipedream.com/v1/oauth/token \
-          -u "${CLIENT_ID}:${CLIENT_SECRET}" \
-          -d 'grant_type=client_credentials'
-        echo "::endgroup::"
-        
         RESPONSE=$(curl -s \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
           -d 'grant_type=client_credentials')
         TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
-        echo "TOKEN=${TOKEN:0:20}..." >> $GITHUB_ENV
-        echo "✅ Token ready"
+        echo "token=$TOKEN" >> $GITHUB_OUTPUT
 
-    - name: 📋 List Projects
+    - name: 📋 Check Projects
+      env:
+        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
-        echo "::group::ALL PROJECTS"
-        echo "🔍 Calling: https://api.pipedream.com/v1/projects"
-        
-        curl -v -s \
-          -H "Authorization: Bearer $TOKEN" \
-          https://api.pipedream.com/v1/projects | jq .
-        
-        echo "::endgroup::"
-        
-        # Summary
         RESPONSE=$(curl -s \
-          -H "Authorization: Bearer $TOKEN" \
+          -H "Authorization: Bearer $ACCESS_TOKEN" \
           https://api.pipedream.com/v1/projects)
         
-        COUNT=$(echo "$RESPONSE" | jq '.data | length')
-        echo "📊 Total: $COUNT projects"
+        COUNT=$(echo "$RESPONSE" | jq '.data | length // 0')
+        echo "📊 Current projects: $COUNT"
         
-        echo "$RESPONSE" | jq -r '.data[] | "\(.id) → \(.name)"'
+        if [ "$COUNT" = "0" ]; then
+          echo "🚀 Creating FIRST project..."
+        else
+          echo "$RESPONSE" | jq -r '.data[] | "\(.id) → \(.name)"'
+          exit 0
+        fi
+
+    - name: 🆕 Create Project "MyFirstWorkflow"
+      if: always()
+      env:
+        ACCESS_TOKEN: ${{ steps.token.outputs.token }}
+      run: |
+        RESPONSE=$(curl -s -X POST \
+          -H "Authorization: Bearer $ACCESS_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d '{"name":"MyFirstWorkflow"}' \
+          https://api.pipedream.com/v1/projects)
+        
+        echo "$RESPONSE"
+        PROJECT_ID=$(echo "$RESPONSE" | jq -r '.id')
+        echo "✅ Created: $PROJECT_ID"
+        echo "project_id=$PROJECT_ID" >> $GITHUB_ENV
