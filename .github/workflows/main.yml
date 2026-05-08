@@ -1,55 +1,52 @@
-name: 🔍 Pipedream Project Checker
+name: 🔍 Pipedream Project Debug
 on: [push]
-
 jobs:
-  check:
+  debug:
     runs-on: ubuntu-latest
     steps:
     - name: 📦 Setup
-      run: |
-        sudo apt-get update -qq
-        sudo apt-get install -y jq curl
+      run: sudo apt-get update -qq && sudo apt-get install -y jq curl
 
-    - name: 🔐 OAuth Token
+    - name: 🔐 Get Token
       id: token
       env:
         CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
         CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        # Check secrets
-        if [ -z "$CLIENT_ID" ] || [ -z "$CLIENT_SECRET" ]; then
-          echo "❌ Missing secrets!"
-          exit 1
-        fi
-        
-        # Get token
-        TOKEN_RESPONSE=$(curl -s -f \
+        TOKEN_RESPONSE=$(curl -s \
           -X POST https://api.pipedream.com/v1/oauth/token \
           -u "${CLIENT_ID}:${CLIENT_SECRET}" \
           -d 'grant_type=client_credentials')
-        
+        echo "$TOKEN_RESPONSE"
         ACCESS_TOKEN=$(echo "$TOKEN_RESPONSE" | jq -r '.access_token')
-        echo "✅ Token: ${ACCESS_TOKEN:0:15}..."
         echo "token=$ACCESS_TOKEN" >> $GITHUB_OUTPUT
 
-    - name: 🔍 Check proj_AVsiPRB
+    - name: 🔍 Check Project (FULL DEBUG)
       env:
         ACCESS_TOKEN: ${{ steps.token.outputs.token }}
       run: |
         PROJECT_ID="proj_AVsiPRB"
-        echo "::group::Project $PROJECT_ID"
+        echo "::group::DEBUG $PROJECT_ID"
         
-        PROJ_RESPONSE=$(curl -s -f \
+        # Full response with headers & status
+        RESPONSE=$(curl -s -i -w "HTTPSTATUS:%{http_code}" \
           -H "Authorization: Bearer $ACCESS_TOKEN" \
           "https://api.pipedream.com/v1/projects/$PROJECT_ID")
         
-        if echo "$PROJ_RESPONSE" | jq -e '.id' > /dev/null; then
+        echo "=== RAW RESPONSE ==="
+        echo "$RESPONSE"
+        
+        HTTP_CODE=$(echo "$RESPONSE" | grep -o 'HTTPSTATUS:[0-9]*' | cut -d: -f2)
+        BODY=$(echo "$RESPONSE" | sed '/HTTPSTATUS:/q')
+        
+        echo "HTTP: $HTTP_CODE"
+        
+        if [ "$HTTP_CODE" = "200" ]; then
           echo "✅ EXISTS"
-          echo "ID: $(echo "$PROJ_RESPONSE" | jq -r '.id')"
-          echo "Name: $(echo "$PROJ_RESPONSE" | jq -r '.name')"
-          echo "Status: $(echo "$PROJ_RESPONSE" | jq -r '.status')"
-        else
+          echo "$BODY" | jq .
+        elif [ "$HTTP_CODE" = "404" ]; then
           echo "❌ NOT FOUND"
-          echo "Response: $PROJ_RESPONSE"
+        else
+          echo "❌ ERROR $HTTP_CODE"
         fi
         echo "::endgroup::"
