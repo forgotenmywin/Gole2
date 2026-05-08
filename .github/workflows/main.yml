@@ -1,36 +1,35 @@
-name: 🆕 Create Pipedream Workflow FIXED
+name: Pipedream Project Check
 on: [push]
 jobs:
-  create:
+  check-project:
     runs-on: ubuntu-latest
     steps:
-    - name: 😴 ۳۰s صبر
-      run: sleep 30
-    
-    - name: 🔐 Get Token
-      id: auth
+    - name: 🔐 Get OAuth Token
+      id: oauth
       env:
-        ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
-        SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
+        CLIENT_ID: ${{ secrets.PIPEDREAM_CLIENT_ID }}
+        CLIENT_SECRET: ${{ secrets.PIPEDREAM_CLIENT_SECRET }}
       run: |
-        TOKEN=$(curl -s -X POST -u "$ID:$SECRET" \
-          -d "grant_type=client_credentials" \
-          https://api.pipedream.com/v1/oauth/token | jq -r .access_token)
+        echo "=== GET TOKEN ==="
+        RESPONSE=$(curl -s -w "\nSTATUS:%{http_code}" \
+          -X POST https://api.pipedream.com/v1/oauth/token \
+          -u "${CLIENT_ID}:${CLIENT_SECRET}" \
+          -d "grant_type=client_credentials")
+        
+        TOKEN=$(echo "$RESPONSE" | jq -r '.access_token')
+        STATUS=$(echo "$RESPONSE" | tr -d '\n' | sed -e 's/.*STATUS://')
+        
+        echo "Status: $STATUS"
+        echo "Token: ${TOKEN:0:20}..."
         echo "token=$TOKEN" >> $GITHUB_OUTPUT
-    
-    - name: 🆕 Create Workflow
+
+    - name: 🔍 Check Project proj_AVsiPRB
       env:
-        TOKEN: ${{ steps.auth.outputs.token }}
+        ACCESS_TOKEN: ${{ steps.oauth.outputs.token }}
+        PROJECT_ID: proj_AVsiPRB
       run: |
-        echo "=== CREATE WORKFLOW ==="
-        RESPONSE=$(curl -s -w "\nHTTP: %{http_code}" \
-          -X POST -H "Authorization: Bearer $TOKEN" \
-          -H "Content-Type: application/json" \
-          https://api.pipedream.com/v1/workflows \
-          -d '{
-            "name": "GitHub Auto 🎯",
-            "description": "ساخته شد: '"${{ github.run_id }}"'",
-            "source": {"http": "https://httpbin.org/json"}
-          }')
-        echo "$RESPONSE" | jq .
-        echo "✅ تمام!"
+        echo "=== CHECK $PROJECT_ID ==="
+        curl -s -w "\nSTATUS: %{http_code}\n" \
+          -H "Authorization: Bearer $ACCESS_TOKEN" \
+          "https://api.pipedream.com/v1/projects/$PROJECT_ID" \
+          | jq '.id, .name, .status // empty'
